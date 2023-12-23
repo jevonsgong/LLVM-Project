@@ -14,7 +14,7 @@ GIT_STATUS_SCRIPT = "git status --short;"
 
 IMAGE_TO_SETTINGS = {
     "intercode-bash": "/bin/sh",
-    "intercode-nl2bash": "/bin/bash",
+    "intercode-nl2bash": "/bin/sh",
     "intercode-ctf": "/bin/bash",
     "intercode-swe": "/bin/bash",
 }
@@ -29,6 +29,7 @@ class BashEnv(IntercodeEnv):
         # Establish connection with evaluation container
         self.ctr_name_eval = f"{self.image_name}_ic_ctr_eval"
         self.container_eval = get_container(self.ctr_name_eval, self.image_name)
+        self.reward_history = []
     
     def reset_container(self) -> None:
         self.workdir = "/"
@@ -134,7 +135,14 @@ class BashEnv(IntercodeEnv):
         p3_score = round(0.33 * info["answer_similarity"], 2)
         info[REWARD]["answer_similarity"] = p3_score
         reward += p3_score
-
+        last_action = self.trajectory[-1][0]
+        if len(self.trajectory) > 1:
+            action_lst = [self.trajectory[i][0] for i in range(0,len(self.trajectory)-1)]
+            if last_action in action_lst and reward < 1:
+                reward *= 0.6
+            elif self.reward_history and reward <= self.reward_history[-1]/0.9:
+                reward *= 0.9
+        self.reward_history.append(reward)
         self.reward = reward 
         self.info.update(info)
 
@@ -161,7 +169,7 @@ class BashEnv(IntercodeEnv):
         """Parses git status output into list of changes"""
         status_lst = status.split()
         changes = []
-        for i in range(0, len(status_lst), 2):
+        for i in range(0, len(status_lst)-1, 2):
             changes.append((status_lst[i+1], status_lst[i]))
         return changes
 

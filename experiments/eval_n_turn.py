@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append("/Users/gongwenzhen/anaconda3/envs/intercode/lib/python3.9/site-packages")
 import argparse, json, os, re
 from intercode.envs import (
     BashEnv, CTFEnv, PythonEnv, SqlEnv, ACTION_EXEC, AGENT_OBS
@@ -9,6 +13,7 @@ from experiments.policies import (
 )
 from experiments.utils import HANDICAP_MAP, PROMPT_MAP
 from rich import print
+
 
 parser = argparse.ArgumentParser(description='N-turn evaluation for Intercode environment')
 parser.add_argument('--data_path', type=str, help='path to dataset to evaluate on')
@@ -65,7 +70,7 @@ class ExperimentWrapper():
         # Define log file name and path
         if not os.path.exists(args.log_dir):
             os.makedirs(args.log_dir, exist_ok=True)
-        log_file_name = f"{self.env.name}_multiturn_{args.model}_{args.max_turns}_turns.json"
+        log_file_name = f"{self.env.name}_multiturn_{args.model}_{args.max_turns}_turns_{args.template}.json"
         self.log_path = os.path.join(args.log_dir, log_file_name)
         self.log_data = {}
 

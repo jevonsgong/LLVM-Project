@@ -1,6 +1,10 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append("/Users/gongwenzhen/anaconda3/envs/intercode/lib/python3.9/site-packages")
 import argparse, config, openai, os, random, re
 from intercode.envs import (
-    BashEnv, SqlEnv, ACTION_EXEC
+    BashEnv, SqlEnv, ACTION_EXEC, PythonEnv
 )
 import simplejson as json
 from tqdm import tqdm
@@ -9,7 +13,7 @@ from experiments.utils import TemplatePlanSolve, ACTION_PARSER_MAP
 
 parser = argparse.ArgumentParser(description='Plan & Solve evaluation for Intercode environment')
 parser.add_argument('--data_path', type=str, help='path to dataset to evaluate on')
-parser.add_argument('--env', choices=['sql', 'bash'], help='Intercode environment to run eval on')
+parser.add_argument('--env', choices=['sql','bash','python'], help='Intercode environment to run eval on')
 parser.add_argument('--image_name', type=str, help='name of docker image to build environment with')
 parser.add_argument('--log_dir', type=str, help='folder to save experiment run log file to')
 parser.add_argument('--proportion', type=float, help="proportion of the dataset to use for evaluation")
@@ -21,7 +25,8 @@ args = parser.parse_args()
 
 SETTING_MAP = {
     "sql": "MySQL Database",
-    "bash": "Bourne Shell"
+    "bash": "Bourne Shell",
+    "python": "Python 3 Interpreter",
 }
 
 def preprocess_sql(record: Dict) -> List:
@@ -58,6 +63,9 @@ class ExperimentWrapper():
         elif args.env == 'bash':
             self.env = BashEnv(image_name=args.image_name,
                 data_path=args.data_path)
+        elif args.env == 'python':
+            self.env = PythonEnv(image_name=args.image_name,
+                data_path=args.data_path)
         else:
             raise ValueError(f'Environment {args.env} not recognized')
         
@@ -80,7 +88,7 @@ class ExperimentWrapper():
             indices = range(len(self.env.data_loader))
             if self.args.seed and self.args.proportion:
                 indices = random.Random(self.args.seed).choices(list(indices),
-                    k=int(len(indices) * self.args.proportion))[6:]
+                    k=int(len(indices) * self.args.proportion))[0:]
             for idx in tqdm(indices, disable=self.args.verbose):
                 # Reset variables per task
                 self.env.reset(idx)

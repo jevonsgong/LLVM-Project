@@ -21,6 +21,7 @@ class PythonEnv(IntercodeEnv):
         super(PythonEnv, self).__init__(image_name, **kwargs)
         self.conn = rpyc.connect("localhost", HOST_PORT)
         self.is_agent = kwargs.get("is_agent", False)
+        self.reward_history = []
     
     def reset_container(self) -> None:
         self.conn.root.execute(RESET_KEYWORD)
@@ -44,8 +45,10 @@ class PythonEnv(IntercodeEnv):
         MAP_DATASET_TO_REWARD = {
             "ic_apps": self.get_reward_apps,
             "ic_mbpp": self.get_reward_mbpp,
+            "ic_mbpp_small": self.get_reward_mbpp,
         }
         dataset = self.data_path.split("/")[-1].split(".")[0]
+
         return MAP_DATASET_TO_REWARD[dataset]()
     
     def close(self):
@@ -94,10 +97,11 @@ class PythonEnv(IntercodeEnv):
         # Get function from `submit` action
         # TODO: Assert that function name is given upon `submit` action
         last_action = self.trajectory[-1][0]
-        func_name = last_action.split(" ")[1]
+        #print(self.trajectory)
+        func_name = re.search(r'def (\w+)\s*\(', last_action).group(1)
 
         # Get gold function name, assign to submitted function
-        func_name_ref = re.search(r'def (\w+)\(', self.gold).group(1)
+        func_name_ref = re.search(r'def (\w+)\s*\(', self.gold).group(1)
         self.conn.root.execute(f"{func_name_ref} = {func_name}")
 
         # Run tests against submitted function
@@ -124,8 +128,19 @@ class PythonEnv(IntercodeEnv):
             output_gold = results_gold[test]
             if output == output_gold:
                 correct += 1
-        self.info[REWARD] = float(correct) / len(results_pred)
+        reward = float(correct) / len(results_pred)
+        if len(self.trajectory) > 1:
+            action_lst = [self.trajectory[i][0] for i in range(0,len(self.trajectory)-1)]
+            if last_action in action_lst and reward < 1:
+                reward *= 0.6
+            elif self.reward_history and reward <= self.reward_history[-1]/0.9:
+                reward *= 0.9
+        self.reward_history.append(reward)
+        self.info[REWARD] = reward
         self.reward = self.info[REWARD]
+        # Reward redesign might also need to change templates, i.e. explain reward calc?
+        # Punish if it goes into trap/does not improve
+        # if all correct, reward must be 1.0
 
         self.logger.info(f"Info: {self.info}")
         self.logger.info(f"Reward: {self.reward}")

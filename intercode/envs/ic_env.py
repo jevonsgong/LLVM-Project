@@ -97,7 +97,7 @@ class IntercodeEnv(ABC, gym.Env):
         if action == "skip":
             return "skipped", 0, True, {}
         if action.startswith("submit"):
-            self.trajectory.append((action, None))
+            #self.trajectory.append((action, None))
             reward, info = 0, {}
             if not self.tool_mode:
                 reward, info = self.get_reward()

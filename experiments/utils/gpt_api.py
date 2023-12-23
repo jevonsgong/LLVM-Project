@@ -1,5 +1,7 @@
 import config
 import openai
+
+
 import os
 import re
 from time import sleep
@@ -16,7 +18,6 @@ if (api_key is None or api_key == "") and os.path.isfile(os.path.join(os.getcwd(
     cfg = config.Config('keys.cfg')
     api_key = cfg.get("OPENAI_API_KEY")
 openai.api_key = api_key
-
 # Define retry decorator to handle OpenAI API timeouts
 @retry(wait=wait_random_exponential(min=20, max=100), stop=stop_after_attempt(6))
 def completion_with_backoff(**kwargs):
@@ -28,11 +29,11 @@ def chat_with_backoff(**kwargs):
     return openai.ChatCompletion.create(**kwargs)
 
 # Define GPT-3 completion function
-def CompletionGPT(phrase, model="text-davinci-003", num_samples=1):
+def CompletionGPT(messages, model="text-davinci-003", num_samples=1):
     sleep(2)
     response = completion_with_backoff(
         model=model,
-        prompt=phrase.strip(),
+        prompt=messages.strip(),
         temperature=0,
         top_p=1,
         max_tokens=512,

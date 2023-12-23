@@ -349,7 +349,28 @@ display this information for the `workspace` directory
 3. Use the `du` command with the `workspace/` dircetory as the argument to get disk usage.
 """
 
-DEMO_MAP_PLAN = {"SQL": DEMO_SQL_PLAN, "BASH": DEMO_BASH_PLAN}
+DEMO_PYTHON_PLAN = """Question: Write a function to count the number of unique characters in a string.
+Plan:
+1. Create a new list to store all unique characters.
+2. Append unseen characters to the list during a loop over the string.
+3. Get the length of the list.
+4. Check if any additional python packages need to be imported.
+
+Question: Write a function to calculate the area of a triangle.
+Plan: 
+1. Check which formula to calculate triangle area is the bset for this query.
+2. Apply the formula to calculate area.
+3. Check if any additional python packages need to be imported.
+
+Question: Write a function to get all prime values in a list.
+Plan:
+1. Check how to recognize a prime number is the easiest.
+2. Write a utility function to determine whether a number is prime.
+3. Loop over the list to get all primes.
+4. Check if any additional python packages need to be imported.
+"""
+
+DEMO_MAP_PLAN = {"SQL": DEMO_SQL_PLAN, "BASH": DEMO_BASH_PLAN, "PYTHON": DEMO_PYTHON_PLAN}
 
 
 class PromptTemplate():
@@ -476,6 +497,58 @@ Try something different to generate {self.language} command to get a reward of 1
 Do not generate any output or reward.
 """
 
+
+class TemplateV2r(PromptTemplate):
+    def get_init_msg(self):
+        self.explore_msg = f"""
+Try ```sql
+SHOW TABLES``` or ```sql
+DESCRIBE <table_name> to learn more about the database```.
+
+"""
+        return f"""## TASK DESCRIPTION
+You are a {self.language} code generator helping me answer a question using {self.language}. 
+I will ask you a question, and your task is to interact with a {self.setting} system using {self.language} commands to come up with the answer. 
+
+## RESPONSE FORMAT
+Your response should be a {self.language} command. Format your {self.language} command as follows:
+```{self.language}
+Your {self.language} code here
+```
+
+DO NOT WRITE ANYTHING EXCEPT FOR CODE in your response.
+{self.explore_msg}
+
+## OUTPUT DESCRIPTION
+Given your {self.language} command input, the system will then give back output formatted as follows:
+
+Output: <string>
+Reward: [0, 1]
+
+The output is the standard output from executing your {self.language} command.
+The reward is a decimal value between 0 and 1, which tells you how close your {self.language} command is to the correct answer. 
+The closer the reward is to 1, the closer your {self.language} command is to the correct answer.
+This reward is also designed to be seriously punished if your answer is the same as one of the previous attempts and slightly punished if your answer do not make any improvements on test cases.
+
+You have to try to maximize the reward.
+"""
+
+    def get_query_msg(self, query):
+        self.query = query
+        return f"""Query: \"{query}\".
+Do not generate any output or reward.
+"""
+
+    def get_obs_msg(self, observation, reward):
+        if isinstance(observation, str) and observation == "" or isinstance(observation, list) and len(
+                observation) == 0:
+            observation = "No output"
+        return f"""{self.setting} Output: {observation}
+Reward: {reward}
+Here is the query again: \"{self.query}\"
+Try something different to generate {self.language} command to get a reward of 1.
+Do not generate any output or reward.
+"""
 
 class TemplateSQLGame(TemplateV2):
     def get_init_msg(self):
@@ -700,7 +773,7 @@ I will ask you a question, and your task is to interact with a {self.setting} us
 For any valid {self.language} action, I will return the following:
 Output: <string>
 
-The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly do this to debug your code and build your function or test your function against some test cases of your own.
+The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly use this to debug your code and build your function or test your function against some test cases of your own.
 
 If you write your function, I will test your function against some test cases and return the following:
 Output: <string>
@@ -720,14 +793,268 @@ Along with the output, you get the reward which is a decimal value between 0 and
 """
 
 
+class TemplateFunctionCOT0(TemplateV2):
+    def __init__(self, language: str, setting: str):
+        super().__init__(language, setting)
+        self.message_history = ""
+
+    def get_init_msg(self):
+        return f"""## TASK DESCRIPTION
+You are a {self.language} code generator helping me answer a question using {self.language}.
+I will ask you a question, and your task is to interact with a {self.setting} using {self.language} commands to come up with the answer. Your goal is to write a {self.language} function for the query as per the context I describe that returns the correct answer. A {self.language} function is a function that starts with 'def <my_function>:' and ends with 'return'. 
+
+## RULES
+1. Do NOT ask questions 
+2. Do NOT provide any explanations
+3. Try to maximize your reward to 1 by interacting with the interpreter using {self.language} commands to build a {self.language} function that returns the correct answer.
+4. Only output valid {self.language} code. DO NOT output anything else.
+5. Think step by step to first determine how to solve the problem and then generate the code. Do NOT explain how!
+
+## OUTPUT DESCRIPTION
+For any valid {self.language} action, I will return the following:
+Output: <string>
+
+The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly use this to debug your code and build your function or test your function against some test cases of your own.
+
+If you write your function, I will test your function against some test cases and return the following:
+Output: <string>
+Reward: [0, 1]
+
+Along with the output, you get the reward which is a decimal value between 0 and 1, which tells you how close your {self.language} function's result is to the correct answer. The closer the reward is to 1, the closer your {self.language} function is to the correct answer.
+"""
+
+    def get_obs_msg(self, observation, reward):
+        if isinstance(observation, str) and observation == "" or isinstance(observation, list) and len(
+                observation) == 0:
+            observation = f"No output, write a {self.language} function to get an output."
+        return f"""{self.setting} Output: {observation}
+    Reward: {reward}
+    Here is the query again: \"{self.query}\"
+    Analyze the output and think about what mistake in the code the error message is pointing to/what cases might be failing {self.language} function to get a reward of 1.
+    Only output valid {self.language} code. DO NOT output anything else.
+"""
+
+class TemplateFunctionCOTF(TemplateV2):
+    def __init__(self, language: str, setting: str):
+        super().__init__(language, setting)
+        self.message_history = ""
+
+    def get_init_msg(self):
+        return f"""## TASK DESCRIPTION
+You are a {self.language} code generator helping me answer a question using {self.language}.
+I will ask you a question, and your task is to interact with a {self.setting} using {self.language} commands to come up with the answer. Your goal is to write a {self.language} function for the query as per the context I describe that returns the correct answer. A {self.language} function is a function that starts with 'def <my_function>:' and ends with 'return'. 
+
+## RULES
+1. Do NOT ask questions 
+2. Do NOT provide any explanations
+3. Try to maximize your reward to 1 by interacting with the interpreter using {self.language} commands to build a {self.language} function that returns the correct answer.
+4. Only output valid {self.language} code. DO NOT output anything else.
+5. Think step by step to first determine how to solve the problem and then generate the code. Do NOT explain how!
+Here are a few examples of thinking step by step:
+Question: Write a function to count the number of unique characters in a string.
+Thoughts:
+1. Create a new list to store all unique characters.
+2. Append unseen characters to the list during a loop over the string.
+3. Get the length of the list.
+4. Check if any additional python packages need to be imported.
+
+Question: Write a function to calculate the area of a triangle.
+Thoughts: 
+1. Check which formula to calculate triangle area is the bset for this query.
+2. Apply the formula to calculate area.
+3. Check if any additional python packages need to be imported.
+
+Question: Write a function to get all prime values in a list.
+Thoughts:
+1. Check how to recognize a prime number is the easiest.
+2. Write a utility function to determine whether a number is prime.
+3. Loop over the list to get all primes.
+4. Check if any additional python packages need to be imported.
+
+## OUTPUT DESCRIPTION
+For any valid {self.language} action, I will return the following:
+Output: <string>
+
+The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly use this to debug your code and build your function or test your function against some test cases of your own.
+
+If you write your function, I will test your function against some test cases and return the following:
+Output: <string>
+Reward: [0, 1]
+
+Along with the output, you get the reward which is a decimal value between 0 and 1, which tells you how close your {self.language} function's result is to the correct answer. The closer the reward is to 1, the closer your {self.language} function is to the correct answer.
+"""
+
+    def get_obs_msg(self, observation, reward):
+        if isinstance(observation, str) and observation == "" or isinstance(observation, list) and len(
+                observation) == 0:
+            observation = f"No output, write a {self.language} function to get an output."
+        return f"""{self.setting} Output: {observation}
+    Reward: {reward}
+    Here is the query again: \"{self.query}\"
+    Analyze the output and think about what mistake in the code the error message is pointing to/what cases might be failing {self.language} function to get a reward of 1.
+    Only output valid {self.language} code. DO NOT output anything else.
+"""
+
+class TemplateFunctionCOT0_r(TemplateV2):
+    def __init__(self, language: str, setting: str):
+        super().__init__(language, setting)
+        self.message_history = ""
+
+    def get_init_msg(self):
+        return f"""## TASK DESCRIPTION
+You are a {self.language} code generator helping me answer a question using {self.language}.
+I will ask you a question, and your task is to interact with a {self.setting} using {self.language} commands to come up with the answer. Your goal is to write a {self.language} function for the query as per the context I describe that returns the correct answer. A {self.language} function is a function that starts with 'def <my_function>:' and ends with 'return'. 
+
+## RULES
+1. Do NOT ask questions 
+2. Do NOT provide any explanations
+3. Try to maximize your reward to 1 by interacting with the interpreter using {self.language} commands to build a {self.language} function that returns the correct answer.
+4. Only output valid {self.language} code. DO NOT output anything else.
+5. Think step by step to first determine how to solve the problem and then generate the code. Do NOT explain how!
+
+## OUTPUT DESCRIPTION
+For any valid {self.language} action, I will return the following:
+Output: <string>
+
+The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly use this to debug your code and build your function or test your function against some test cases of your own.
+
+If you write your function, I will test your function against some test cases and return the following:
+Output: <string>
+Reward: [0, 1]
+
+Along with the output, you get the reward which is a decimal value between 0 and 1, which tells you how close your {self.language} function's result is to the correct answer. The closer the reward is to 1, the closer your {self.language} function is to the correct answer.
+This reward is also designed to be seriously punished if your answer is the same as one of the previous attempts and slightly punished if your answer do not make any improvements on test cases.
+"""
+
+    def get_obs_msg(self, observation, reward):
+        if isinstance(observation, str) and observation == "" or isinstance(observation, list) and len(
+                observation) == 0:
+            observation = f"No output, write a {self.language} function to get an output."
+        return f"""{self.setting} Output: {observation}
+    Reward: {reward}
+    Here is the query again: \"{self.query}\"
+    Analyze the output and think about what mistake in the code the error message is pointing to/what cases might be failing {self.language} function to get a reward of 1.
+    Only output valid {self.language} code. DO NOT output anything else.
+"""
+
+class TemplateFunctionCOTF_r(TemplateV2):
+    def __init__(self, language: str, setting: str):
+        super().__init__(language, setting)
+        self.message_history = ""
+
+    def get_init_msg(self):
+        return f"""## TASK DESCRIPTION
+You are a {self.language} code generator helping me answer a question using {self.language}.
+I will ask you a question, and your task is to interact with a {self.setting} using {self.language} commands to come up with the answer. Your goal is to write a {self.language} function for the query as per the context I describe that returns the correct answer. A {self.language} function is a function that starts with 'def <my_function>:' and ends with 'return'. 
+
+## RULES
+1. Do NOT ask questions 
+2. Do NOT provide any explanations
+3. Try to maximize your reward to 1 by interacting with the interpreter using {self.language} commands to build a {self.language} function that returns the correct answer.
+4. Only output valid {self.language} code. DO NOT output anything else.
+5. Think step by step to first determine how to solve the problem and then generate the code. Do NOT explain how!
+Here are a few examples of thinking step by step:
+Question: Write a function to count the number of unique characters in a string.
+Thoughts:
+1. Create a new list to store all unique characters.
+2. Append unseen characters to the list during a loop over the string.
+3. Get the length of the list.
+4. Check if any additional python packages need to be imported.
+
+Question: Write a function to calculate the area of a triangle.
+Thoughts: 
+1. Check which formula to calculate triangle area is the bset for this query.
+2. Apply the formula to calculate area.
+3. Check if any additional python packages need to be imported.
+
+Question: Write a function to get all prime values in a list.
+Thoughts:
+1. Check how to recognize a prime number is the easiest.
+2. Write a utility function to determine whether a number is prime.
+3. Loop over the list to get all primes.
+4. Check if any additional python packages need to be imported.
+
+## OUTPUT DESCRIPTION
+For any valid {self.language} action, I will return the following:
+Output: <string>
+
+The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly use this to debug your code and build your function or test your function against some test cases of your own.
+
+If you write your function, I will test your function against some test cases and return the following:
+Output: <string>
+Reward: [0, 1]
+
+Along with the output, you get the reward which is a decimal value between 0 and 1, which tells you how close your {self.language} function's result is to the correct answer. The closer the reward is to 1, the closer your {self.language} function is to the correct answer.
+This reward is also designed to be seriously punished if your answer is the same as one of the previous attempts and slightly punished if your answer do not make any improvements on test cases.
+"""
+
+    def get_obs_msg(self, observation, reward):
+        if isinstance(observation, str) and observation == "" or isinstance(observation, list) and len(
+                observation) == 0:
+            observation = f"No output, write a {self.language} function to get an output."
+        return f"""{self.setting} Output: {observation}
+    Reward: {reward}
+    Here is the query again: \"{self.query}\"
+    Analyze the output and think about what mistake in the code the error message is pointing to/what cases might be failing {self.language} function to get a reward of 1.
+    Only output valid {self.language} code. DO NOT output anything else.
+"""
+
+
+class TemplateCodeFunction_r(TemplateV2):
+    def __init__(self, language: str, setting: str):
+        super().__init__(language, setting)
+        self.message_history = ""
+
+    def get_init_msg(self):
+        return f"""## TASK DESCRIPTION
+You are a {self.language} code generator helping me answer a question using {self.language}.
+I will ask you a question, and your task is to interact with a {self.setting} using {self.language} commands to come up with the answer. Your goal is to write a {self.language} function for the query as per the context I describe that returns the correct answer. A {self.language} function is a function that starts with 'def <my_function>:' and ends with 'return'. 
+
+## RULES
+1. Do NOT ask questions 
+2. Do NOT provide any explanations
+3. Try to maximize your reward to 1 by interacting with the interpreter using {self.language} commands to build a {self.language} function that returns the correct answer.
+4. Only output valid {self.language} code. DO NOT output anything else.
+
+## OUTPUT DESCRIPTION
+For any valid {self.language} action, I will return the following:
+Output: <string>
+
+The output will contain the standard output from executing your {self.language} code and any errors encountered. You can mainly use this to debug your code and build your function or test your function against some test cases of your own.
+
+If you write your function, I will test your function against some test cases and return the following:
+Output: <string>
+Reward: [0, 1]
+
+Along with the output, you get the reward which is a decimal value between 0 and 1, which tells you how close your {self.language} function's result is to the correct answer. The closer the reward is to 1, the closer your {self.language} function is to the correct answer.
+This reward is also designed to be seriously punished if your answer is the same as one of the previous attempts and slightly punished if your answer do not make any improvements on test cases.
+"""
+
+    def get_obs_msg(self, observation, reward):
+        if isinstance(observation, str) and observation == "" or isinstance(observation, list) and len(
+                observation) == 0:
+            observation = f"No output, write a {self.language} function to get an output."
+        return f"""{self.setting} Output: {observation}
+    Reward: {reward}
+    Here is the query again: \"{self.query}\"
+    Analyze the output and think about what cases might be failing {self.language} function to get a reward of 1.
+    Only output valid {self.language} code. DO NOT output anything else.
+"""
+
 PROMPT_MAP = {
     "v1": TemplateV1, # GPT, Palm completion
     "v2": TemplateV2, # GPT, Palm chat, Vicuna
+    "v2r": TemplateV2r,
     "v3": TemplateV3, # Falcon
     "v4": TemplateV4, # Starchat
     "game_sql": TemplateSQLGame,
     "react": TemplateReAct,
     "ctf": TemplateCTF,
     "plan_solve": TemplatePlanSolve,
-    "function": TemplateCodeFunction
+    "function": TemplateCodeFunction,
+    "pythonCOT0":TemplateFunctionCOT0,
+    "pythonCOTF":TemplateFunctionCOTF,
+    "function_r": TemplateCodeFunction_r,
+    "pythonCOT0_r":TemplateFunctionCOT0_r,
+    "pythonCOTF_r":TemplateFunctionCOTF_r,
 }

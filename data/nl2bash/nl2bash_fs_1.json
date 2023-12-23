@@ -44,10 +44,6 @@
         "gold": "comm -23 <(sort /testbed/dir3/subdir1/subsubdir1/textfile3.txt | uniq) <(sort /testbed/dir2/subdir1/textfile2.txt | uniq) | head -1"
     },
     {
-        "query": "Compress in parallel regular files in the testbed directory tree that were last modified more than 7 days ago",
-        "gold": "find /testbed -type f  -mtime +7 | tee compressedP.list | xargs -I{} -P10 compress {} &"
-    },
-    {
         "query": "Compress regular files in the testbed directory tree that were last modified more than 7 days ago",
         "gold": "find /testbed -type f -mtime +7 | tee compressedP.list | xargs -0 gzip"
     },

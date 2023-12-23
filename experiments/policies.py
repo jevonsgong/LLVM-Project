@@ -18,7 +18,20 @@ class HumanPolicy(BasePolicy):
     def forward(self, query, observation, available_actions):
         action = input('> ')
         return action
-    
+
+class SolverPolicy(BasePolicy):
+    def __init__(self, language: str, setting: str, template: str, dialogue_limit: int = None, model: str = "text-davinci-003", response_limit: int = 500):
+        super().__init__()
+        self.language = language.upper()
+        self.setting = setting
+        self.template = PROMPT_MAP[template](self.language, self.setting)
+        self.action_parser = ACTION_PARSER_MAP[language]
+        self.response_limit = response_limit
+        self.model = model
+        self.handicap = ""
+        self.dialogue_limit = dialogue_limit
+
+
 class CompletionGPTPolicy(BasePolicy):
     def __init__(self, language: str, setting: str, template: str, dialogue_limit: int = None, model: str = "text-davinci-003", response_limit: int = 500):
         super().__init__()
