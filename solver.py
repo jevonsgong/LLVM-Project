@@ -1,12 +1,3 @@
-
-
-# Set your OpenAI API key
-# openai.api_key = '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'
-
-
-
-""
-
 import os
 from openai import OpenAI
 import numpy as np
@@ -19,7 +10,7 @@ from scipy.sparse.csgraph import laplacian
 
 # MODEL="gpt-4-1106-preview"
 MODEL="gpt-3.5-turbo"
-
+API_KEY="KEY"
 def isfloat(str):
     try: 
         float(str)
