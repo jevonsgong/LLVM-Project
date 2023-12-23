@@ -19,7 +19,7 @@ from scipy.sparse.csgraph import laplacian
 
 # MODEL="gpt-4-1106-preview"
 MODEL="gpt-3.5-turbo-1106"
-
+API_KEY="your-key"
 def isfloat(str):
     try: 
         float(str)
@@ -30,7 +30,7 @@ def isfloat(str):
 class ChatGPT:
     def __init__(self):
         # Setting the API key to use the OpenAI API
-        self.client = OpenAI(api_key="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")
+        self.client = OpenAI(api_key=API_KEY)
         self.messages = [
             {"role": "system", "content": "You are an assistant operating under a multi-stage thinking structure"},
         ]
