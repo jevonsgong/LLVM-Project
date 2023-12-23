@@ -1,4 +1,4 @@
-# https://github.com/Haskely/gsm8k-rft-llama7b-u13b_evaluation/tree/main
+#modified from https://github.com/Haskely/gsm8k-rft-llama7b-u13b_evaluation/tree/main
 import json
 import re
 from pathlib import Path
