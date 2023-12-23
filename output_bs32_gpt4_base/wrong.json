@@ -1,0 +1,24 @@
+[
+    {
+        "index": 12,
+        "gsm8k_data": {
+            "question": "Carlos is planting a lemon tree. The tree will cost $90 to plant. Each year it will grow 7 lemons, which he can sell for $1.5 each. It costs $3 a year to water and feed the tree. How many years will it take before he starts earning money on the lemon tree?",
+            "answer": "He makes $10.5 selling lemons each year because 7 x 1.5 = <<7*1.5=10.5>>10.5\nHe earns $7.5 each year from the lemon tree because 10.5 - 3 = <<10.5-3=7.5>>7.5\nIt will take 12 years to earn enough to pay off the tree because 90 / 7.5 = <<90/7.5=12>>12\nHe will make money in year 13 because 12 + 1 = <<12+1=13>>13\n#### 13"
+        },
+        "output_str": "12",
+        "extract_true_num": 13.0,
+        "extract_pred_num": 12.0,
+        "is_correct": false
+    },
+    {
+        "index": 62,
+        "gsm8k_data": {
+            "question": "If Marcy works for the same company for 40 years, she gets an annual pension of $50,000/year. Starting after 20 years, she becomes entitled to 5% of the value of the pension per year. If she quits after 30 years, what will her annual pension be?",
+            "answer": "First find how many years Marcy works after 20 years: 30 years - 20 years = <<30-20=10>>10 years\nThen multiply that number by the amount of her pension she gets per year: 10 years * 5% = 50%\nThen multiply that percentage by the total amount of the full pension to find how much she gets: $50,000 * 50% = $<<50000*50*.01=25000>>25,000\n#### 25000"
+        },
+        "output_str": "75000",
+        "extract_true_num": 25000.0,
+        "extract_pred_num": 75000.0,
+        "is_correct": false
+    }
+]
